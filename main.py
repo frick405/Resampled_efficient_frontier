@@ -94,8 +94,6 @@ if __name__ == '__main__':
        plt.scatter(min_vol_port_std, min_vol_port_ret, marker='o', color='b', label='Min Volatility')
        plt.scatter(0, rf, marker='o', color='g', label='Risk-Free')
        plt.colorbar(label='sharpe')
-
-       
        plt.legend()
        plt.show()
 
