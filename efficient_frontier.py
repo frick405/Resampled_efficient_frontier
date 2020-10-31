@@ -153,6 +153,7 @@ class EfficientFrontier:
 if __name__ == '__main__':
     random.seed(0)
     rf = 0.02
+    gamma_ls = np.arange(0, 20, 5)
     ret_df = pd.concat([fdr.DataReader('KS11')['Change'],
                        fdr.DataReader('SSEC')['Change'],
                        fdr.DataReader('UK100')['Change']], 1).dropna()
@@ -176,17 +177,18 @@ if __name__ == '__main__':
     max_quadratic_port_ls = []
 
     # Calculate portfolio with variety gamma, which represent each investor's magitude of risk aversion
-    for gamma in np.arange(0, 20, 5):
+    for gamma in gamma_ls:
         max_quadratic_port_ret, max_quadratic_port_vol = ef.get_port_summary(ef.max_quadratic_util(mean, cov, gamma), mean, cov)
         max_quadratic_port_ls.append((max_quadratic_port_ret, max_quadratic_port_vol))
-    max_quadratic_port = pd.DataFrame(max_quadratic_port_ls)
+
+    max_quadratic_port = pd.DataFrame(max_quadratic_port_ls, index=gamma_ls)
 
     # plotting session
     plt.figure(figsize=(12, 6))
-    plt.scatter(mean_vol_df[1], mean_vol_df[0], c=(mean_vol_df[0] / mean_vol_df[1]), cmap='Blues', label='Opportunity Set')
+    plt.scatter(mean_vol_df[1], mean_vol_df[0], c=(mean_vol_df[0] / mean_vol_df[1]), cmap='gray', label='Opportunity Set')
     plt.scatter(max_sharpe_port_std, max_sharpe_port_ret, marker='o', color='r', label='Max Sharpe')
     plt.scatter(min_vol_port_std, min_vol_port_ret, marker='o', color='y', label='Min Volatility')
-    plt.scatter(max_quadratic_port[1], max_quadratic_port[0], label='Max Quadratic')
+    plt.scatter(max_quadratic_port[1], max_quadratic_port[0], label=gamma_ls)
     plt.plot([0, max_sharpe_port_std], [rf, max_sharpe_port_ret], color='k', label='CML')
 
     plt.scatter(0, rf, marker='o', color='g', label='Risk-Free')
