@@ -24,7 +24,7 @@ class EfficientFrontier:
         self.num_assets = ret_df.shape[1]
         self.to_yearly = to_yearly
 
-    def weight_loader(self):
+    def weight_loader(self) -> pd.DataFrame:
 
         '''
         :return: pd.Dataframe, For making opportunity set, make random weight that matched to asset_num
