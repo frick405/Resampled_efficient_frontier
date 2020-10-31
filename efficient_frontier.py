@@ -94,7 +94,7 @@ class EfficientFrontier:
 
         return util
 
-    def max_sharpe(self, mean, cov) -> np.array:
+    def max_sharpe(self, mean:np.array, cov:np.array) -> np.array:
         '''
         :param mean: np.array, Each security's average return mean
         :param cov: np.array, Each security's average return covariance
@@ -113,7 +113,7 @@ class EfficientFrontier:
                          constraints=cons)
         return res['x']
 
-    def min_vol(self, mean, cov) -> np.array:
+    def min_vol(self, mean:np.array, cov:np.array) -> np.array:
         '''
         :param mean: np.array, Each security's average return mean
         :param cov: np.array, Each security's average return covariance
@@ -131,7 +131,7 @@ class EfficientFrontier:
                          constraints=cons)
         return res['x']
 
-    def max_quadratic_util(self, mean, cov, gamma) -> np.array:
+    def max_quadratic_util(self, mean:np.array, cov:np.array, gamma:float) -> np.array:
         '''
         :param mean: np.array, Each security's average return mean
         :param cov: np.array, Each security's average return covariance
