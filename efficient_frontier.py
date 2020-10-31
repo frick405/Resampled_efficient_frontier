@@ -37,7 +37,7 @@ class EfficientFrontier:
 
         return weight_df
 
-    def get_port_summary(self, weight:pd.DataFrame, mean:np.array, cov:np.array) -> tuple(float, float):
+    def get_port_summary(self, weight:pd.DataFrame, mean:np.array, cov:np.array) -> tuple:
 
         '''
         :param weight: pd.DataFrame, Weight for make portfolio return, volatility
@@ -71,12 +71,28 @@ class EfficientFrontier:
         :param mean: np.array, Each security's average return mean
         :param cov: np.array, Each security's average return covariance
         :return: float, return portfolio's Sharpe ratio
-        :description: Calculate portfolio's Sharpe ratio
+        :description: Calculate portfolio's Sharpe ratio. Because of using scipy.minimize, sign is negative
         '''
 
         port_ret, port_vol = self.get_port_summary(weight, mean, cov)
 
         return -1 * ((port_ret - self.rf) / port_vol)
+
+    def quadratic_util(self, weight:pd.DataFrame, mean:np.array, cov:np.array, gamma:float):
+        '''
+        :param weight: pd.DataFrame, Weight for make portfolio return, volatility
+        :param mean: np.array, Each security's average return mean
+        :param cov: np.array, Each security's average return covariance
+        :param rf: float, risk-free rate
+        :param gamma: float, it determines investor's the magnitude of risk aversion
+        :return: float, return investor's utility for portfolio which is determined by gamma
+        :description: According to the magnitude of risk aversion of investor, return utility of investor. Because of using scipy.minimize, sign is negative
+        '''
+
+        port_ret, port_vol = self.get_port_summary(weight, mean, cov)
+        util = -1 * (port_ret - (1 / 2) * gamma * (port_vol ** 2))
+
+        return util
 
     def max_sharpe(self, mean, cov) -> np.array:
         '''
@@ -115,6 +131,25 @@ class EfficientFrontier:
                          constraints=cons)
         return res['x']
 
+    def max_quadratic_util(self, mean, cov, gamma) -> np.array:
+        '''
+        :param mean: np.array, Each security's average return mean
+        :param cov: np.array, Each security's average return covariance
+        :return: np.array, return optimal weight maximize sharpe ratio
+        :description: Find optimal weight which maximize sharpe ratio
+        '''
+
+        args = (mean, cov, gamma)
+        cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
+        bnds = tuple((0, 1) for asset in range(self.num_assets))
+        st = self.num_assets * [1 / self.num_assets]
+        res = opt.minimize(self.quadratic_util,
+                         st,
+                         args=args,
+                         bounds=bnds,
+                         constraints=cons)
+        return res['x']
+
 if __name__ == '__main__':
     random.seed(0)
     rf = 0.02
@@ -130,22 +165,34 @@ if __name__ == '__main__':
     ef = EfficientFrontier(ret_df, rf, 252)
 
     for i in range(simul_num):
-          weight = ef.weight_loader()
-          port_ret, port_vol = ef.get_port_summary(weight, mean, cov)
-          mean_vol_ls.append((port_ret, port_vol))
+        weight = ef.weight_loader()
+        port_ret, port_vol = ef.get_port_summary(weight, mean, cov)
+        mean_vol_ls.append((port_ret, port_vol))
 
     mean_vol_df = pd.DataFrame(mean_vol_ls)
     max_sharpe_port_ret, max_sharpe_port_std = ef.get_port_summary(ef.max_sharpe(mean, cov), mean, cov)
     min_vol_port_ret, min_vol_port_std = ef.get_port_summary(ef.min_vol(mean, cov), mean, cov)
 
+    max_quadratic_port_ls = []
+
+    # Calculate portfolio with variety gamma, which represent each investor's magitude of risk aversion
+    for gamma in np.arange(0, 20, 5):
+        max_quadratic_port_ret, max_quadratic_port_vol = ef.get_port_summary(ef.max_quadratic_util(mean, cov, gamma), mean, cov)
+        max_quadratic_port_ls.append((max_quadratic_port_ret, max_quadratic_port_vol))
+    max_quadratic_port = pd.DataFrame(max_quadratic_port_ls)
+
     # plotting session
     plt.figure(figsize=(12, 6))
-    plt.scatter(mean_vol_df[1], mean_vol_df[0], c=(mean_vol_df[0] / mean_vol_df[1]), label='Opportunity Set')
+    plt.scatter(mean_vol_df[1], mean_vol_df[0], c=(mean_vol_df[0] / mean_vol_df[1]), cmap='Blues', label='Opportunity Set')
     plt.scatter(max_sharpe_port_std, max_sharpe_port_ret, marker='o', color='r', label='Max Sharpe')
-    plt.scatter(min_vol_port_std, min_vol_port_ret, marker='o', color='b', label='Min Volatility')
+    plt.scatter(min_vol_port_std, min_vol_port_ret, marker='o', color='y', label='Min Volatility')
+    plt.scatter(max_quadratic_port[1], max_quadratic_port[0], label='Max Quadratic')
+    plt.plot([0, max_sharpe_port_std], [rf, max_sharpe_port_ret], color='k', label='CML')
+
     plt.scatter(0, rf, marker='o', color='g', label='Risk-Free')
     plt.colorbar(label='sharpe')
     plt.legend()
+    plt.savefig('./Basic_Efficient_Frontiter.png')
     plt.show()
 
 
