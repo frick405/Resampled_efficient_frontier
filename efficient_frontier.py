@@ -7,6 +7,7 @@ import scipy.optimize as opt
 
 from typing import *
 from data_loader import *
+
 class EfficientFrontier:
     '''
     Before making resampled efficient frontier line, costruct basic efficient frontier model
@@ -50,7 +51,7 @@ class EfficientFrontier:
         port_ret:pd.DataFrame = np.dot(weight, mean) * self.to_yearly
         port_vol:pd.DataFrame = np.sqrt(np.dot(np.dot(weight, cov), weight.T)) * np.sqrt(self.to_yearly)
 
-        return port_ret, port_vol
+        return [port_ret, port_vol]
 
     def get_port_vol(self, weight:pd.DataFrame, mean:np.array, cov:np.array) -> float:
 
@@ -101,7 +102,7 @@ class EfficientFrontier:
         :description: Acoording to return, return minimized volatility
         '''
 
-        frontier_x = []
+        frontier_x, weight_ls = [], []
 
         for r in frontier_y:
             args = (mean, cov)
@@ -117,8 +118,10 @@ class EfficientFrontier:
                                constraints=cons)
 
             frontier_x.append(res['fun'])
+            weight_ls.append(res['x'])
 
-        return frontier_x, frontier_y
+        weight_df = pd.DataFrame(weight_ls, index=frontier_y)
+        return frontier_x, frontier_y, weight_df
 
     def max_sharpe(self, mean:np.array, cov:np.array) -> np.array:
         '''
