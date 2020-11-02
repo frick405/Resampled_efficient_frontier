@@ -3,11 +3,10 @@ import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 import random
-import FinanceDataReader as fdr
 import scipy.optimize as opt
 
 from typing import *
-
+from data_loader import *
 class EfficientFrontier:
     '''
     Before making resampled efficient frontier line, costruct basic efficient frontier model
@@ -94,6 +93,33 @@ class EfficientFrontier:
 
         return util
 
+    def get_efficient_frontier(self, mean:np.array, cov:np.array, frontier_y:np.array) -> tuple:
+        '''
+        :param mean: np.array, Each security's average return mean
+        :param cov: np.array, Each security's average return covariance
+        :return: np.array, return minimized volatility
+        :description: Acoording to return, return minimized volatility
+        '''
+
+        frontier_x = []
+
+        for r in frontier_y:
+            args = (mean, cov)
+            cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+                    {'type': 'eq', 'fun': lambda x: self.get_port_summary(x, mean, cov)[0] - r})
+            bnds = tuple((0, 1) for asset in range(self.num_assets))
+            st = self.num_assets * [1 / self.num_assets]
+
+            res = opt.minimize(self.get_port_vol,
+                               st,
+                               args=args,
+                               bounds=bnds,
+                               constraints=cons)
+
+            frontier_x.append(res['fun'])
+
+        return frontier_x, frontier_y
+
     def max_sharpe(self, mean:np.array, cov:np.array) -> np.array:
         '''
         :param mean: np.array, Each security's average return mean
@@ -154,9 +180,7 @@ if __name__ == '__main__':
     random.seed(0)
     rf = 0.02
     gamma_ls = np.arange(0, 20, 5)
-    ret_df = pd.concat([fdr.DataReader('KS11')['Change'],
-                       fdr.DataReader('SSEC')['Change'],
-                       fdr.DataReader('UK100')['Change']], 1).dropna()
+    ret_df = DataLoader().get_sample_return()
 
     mean, cov = ret_df.mean(), ret_df.cov() # get each security's return mean and covariance
 
@@ -170,7 +194,10 @@ if __name__ == '__main__':
         port_ret, port_vol = ef.get_port_summary(weight, mean, cov)
         mean_vol_ls.append((port_ret, port_vol))
 
+    frontier_x, frontier_y = ef.get_efficient_frontier(mean, cov, frontier_y=np.linspace(0, 0.09, 50))
+
     mean_vol_df = pd.DataFrame(mean_vol_ls)
+
     max_sharpe_port_ret, max_sharpe_port_std = ef.get_port_summary(ef.max_sharpe(mean, cov), mean, cov)
     min_vol_port_ret, min_vol_port_std = ef.get_port_summary(ef.min_vol(mean, cov), mean, cov)
 
@@ -188,9 +215,9 @@ if __name__ == '__main__':
     plt.scatter(mean_vol_df[1], mean_vol_df[0], c=(mean_vol_df[0] / mean_vol_df[1]), cmap='gray', label='Opportunity Set')
     plt.scatter(max_sharpe_port_std, max_sharpe_port_ret, marker='o', color='r', label='Max Sharpe')
     plt.scatter(min_vol_port_std, min_vol_port_ret, marker='o', color='y', label='Min Volatility')
-    plt.scatter(max_quadratic_port[1], max_quadratic_port[0], label=gamma_ls)
+    plt.scatter(max_quadratic_port[1], max_quadratic_port[0], label='Optimal Portfolio with only Risky Asset')
     plt.plot([0, max_sharpe_port_std], [rf, max_sharpe_port_ret], color='k', label='CML')
-
+    plt.plot(frontier_x, frontier_y, label='Efficient Frontier', color='purple')
     plt.scatter(0, rf, marker='o', color='g', label='Risk-Free')
     plt.colorbar(label='sharpe')
     plt.legend()
